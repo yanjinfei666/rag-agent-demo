@@ -1,0 +1,20 @@
+# 虚拟环境
+venv/
+
+# 向量库缓存
+.chroma_demo/
+.chroma_pdf_demo/
+.chroma_rag/
+
+# 环境变量（含 API Key）
+.env
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# 系统文件
+Thumbs.db
+.DS_Store

@@ -1,0 +1,1 @@
+DeepSeek 是一家中国 AI 公司，专注于大语言模型研发。DeepSeek-V3 是一款 671B 参数的 MoE 模型，训练成本仅 557 万美元。RAG（检索增强生成）是给 LLM 外接知识库的技术。LangChain 是构建 LLM 应用最流行的 Python 框架。ChromaDB 是一个轻量级的开源向量数据库。DeepSeek API 兼容 OpenAI 接口，开发者可以无缝切换。
