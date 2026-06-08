@@ -44,6 +44,9 @@ app.add_middleware(
 class ChatRequest(BaseModel):
     question: str
 
+class FeedbackRequest(BaseModel):
+    message:str
+    score: int
 
 class ChatResponse(BaseModel):
     answer: str
@@ -124,6 +127,10 @@ async def chat(request: ChatRequest):
 
     return ChatResponse(answer=result["answer"], sources=result["sources"])
 
+@app.post("/feedback")
+async def feedback(request: FeedbackRequest):
+    return{"status": "ok",
+           "received":request.message}
 
 # ── 启动入口 ──
 if __name__ == "__main__":
