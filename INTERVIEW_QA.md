@@ -75,9 +75,17 @@
 
 ---
 
-## 📅 待学：Day 5 — Streamlit 对接
+## ✅ Day 5：Streamlit 对接 FastAPI
 
-*学完更新*
+| 优先级 | 问题 | 口语回答 |
+|-------|------|---------|
+| ⭐⭐⭐ | **Streamlit 在项目里扮演什么角色？跟你写的 FastAPI 后端怎么配合的？** | Streamlit 是前端展示层，只负责 UI——文件上传的按钮、对话的输入框、回答的展示和来源的折叠卡片。它完全不碰 RAG 的逻辑，所有 AI 能力都是通过 HTTP 调 FastAPI 的接口来实现的。用户点上传，Streamlit 就 POST /upload；用户输入问题，Streamlit 就 POST /chat。拿到返回的 JSON 后渲染成网页。好处是前后端分离——如果哪天要把 Streamlit 换成 Vue 或者 React，后端一行代码都不用改。 |
+| ⭐⭐⭐ | **你的项目前后端是怎么通信的？** | 通过 HTTP 请求。Streamlit 这边用的是 Python 的 `requests` 库，后端是 FastAPI 的 RESTful 接口。具体流程是：用户点上传 → Streamlit 把 PDF 文件的字节流传给 FastAPI 的 `/upload` → 返回文件信息。用户提问 → Streamlit 用 JSON `{"question": "xx"}` 调 `/chat` → 返回答案和来源列表 → Streamlit 渲染成对话气泡和折叠卡片。两个跑在不同端口——Streamlit 8501，FastAPI 8000，通过 CORS 允许跨域通信。 |
+| ⭐⭐ | **Streamlit 怎么管理对话历史？** | 用 `st.session_state`，这是 Streamlit 内置的跨脚本会话存储。我用一个列表 `st.session_state.messages` 来存每条消息——每条是一个字典，有 role（user 或 assistant）、content（文字内容）、还有 sources（来源列表）。每次新提问时先把历史消息全渲染一遍，再把新的答案加进去。这样用户就能看到完整的多轮对话，不会刷新就丢。 |
+| ⭐⭐ | **为什么会报 CORS 错误？你的代码怎么解决的？** | 因为浏览器的安全策略：不允许不同端口的页面互相调接口。Streamlit 在 8501 端口开了一个网页，但这个网页的 JavaScript 要向 8000 端口的 FastAPI 发请求——浏览器认为这是"跨域"，直接拦截。解决方式是在 FastAPI 里加了 CORSMiddleware，把 `allow_origins` 设为 `["*"]`，告诉浏览器"我的接口允许任何来源调"。以后如果要部署，需要把 `*` 换成真实的前端域名。 |
+| ⭐⭐ | **如果后端没启动，前端会怎么处理？** | Streamlit 这边用 try/except 包住了所有 requests 调用。如果捕获到 `ConnectionError`，说明后端没起来，就在页面上显示一个红色错误提示"无法连接到后端，请确认 uvicorn 已启动"，而不是崩溃。这种容错处理在正式项目里是标配——不管后端挂了还是网络断了，前端都要优雅降级。 |
+| ⭐ | **upload 时为什么传的是文件内容而不是文件路径？** | 因为 Streamlit 的文件上传组件返回的是内存里的字节流——用户点了文件之后文件内容就在 Streamlit 进程的内存里了，不是一个磁盘路径。所以我用 `file.getvalue()` 拿到字节流，和文件名一起封装成 `multipart/form-data`，通过 HTTP POST 发给 FastAPI。FastAPI 那边收到后再把字节流存成临时文件给 PyPDFLoader 用。整个过程不让用户操心路径问题。 |
+| ⭐ | **st.file_uploader 和 st.chat_input 分别是做什么的？** | `st.file_uploader` 是文件上传按钮，type=["pdf"] 限制只选 PDF，选了之后返回文件的字节流和文件名。`st.chat_input` 是类似 ChatGPT 的那个对话框输入栏，用户打完字回车，它返回输入的文本。这两个是 Streamlit 最核心的交互组件，分别对应 /upload 和 /chat 两个接口。 |
 
 ---
 
