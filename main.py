@@ -59,6 +59,13 @@ class UploadResponse(BaseModel):
     chars: int
     chunks: int
 
+class StatusResponse(BaseModel):
+    has_doc: bool
+    filename: str | None = None
+    pages: int = 0
+    chunks: int = 0
+    chars: int = 0
+
 
 # ── 路由 ──
 
@@ -71,6 +78,18 @@ def root():
         "upload": "POST /upload  (multipart/form-data, file=your.pdf)",
         "chat": "POST /chat  (JSON: {\"question\": \"...\"})",
     }
+
+
+@app.get("/status", response_model=StatusResponse)
+def get_status():
+    """查询引擎状态——是否已上传 PDF"""
+    return StatusResponse(
+        has_doc=engine.qa_chain is not None,
+        filename=engine.filename,
+        pages=engine.doc_count,
+        chunks=engine.chunk_count,
+        chars=engine.total_chars,
+    )
 
 
 @app.post("/upload", response_model=UploadResponse)
@@ -99,6 +118,9 @@ async def upload_pdf(file: UploadFile = File(...)):
 
     # 清理临时文件
     os.unlink(tmp_path)
+
+    # 记录文件名（engine 拿到的临时路径不是原名）
+    engine.filename = file.filename
 
     return UploadResponse(
         message=f"✅ 已上传「{file.filename}」",
