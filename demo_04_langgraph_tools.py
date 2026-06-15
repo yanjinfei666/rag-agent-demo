@@ -14,16 +14,16 @@ load_dotenv()
 
 from typing import TypedDict, Literal
 from langgraph.graph import StateGraph, END
-from langgraph.prebuilt import ToolNode
+
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 from langchain_core.tools import tool
 import requests
 
 
 # ── 配置 LLM ──
 llm = ChatOpenAI(
-    model="qwen-plus",
+    model="qwen-max",
     api_key=os.environ["DASHSCOPE_API_KEY"],
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
     temperature=0.1,
@@ -144,14 +144,35 @@ def should_continue(state: AgentState) -> Literal["tools", "end"]:
     return "end"          # 没有工具调用 → 直接结束
 
 
+def execute_tools(state: AgentState) -> AgentState:
+    """执行 LLM 请求的工具调用"""
+    last_message = state["messages"][-1]
+    tool_map = {t.name: t for t in tools}
+
+    for tc in last_message.tool_calls:
+        fn = tool_map.get(tc["name"])
+        if not fn:
+            continue
+        result = fn.invoke(tc["args"])
+
+        # 手动构造 ToolMessage，确保 tool_call_id 正确
+        state["messages"].append(ToolMessage(
+            content=result,
+            tool_call_id=tc["id"],
+        ))
+        state["steps"].append(f"🔨 执行 {tc['name']} 完成")
+
+    return state
+
+
 # ═══════════════════════════════════════════════════
 # 4. 构建图
 # ═══════════════════════════════════════════════════
 workflow = StateGraph(AgentState)
 
 # 注册节点
-workflow.add_node("agent", call_model)      # Agent 思考节点
-workflow.add_node("tools", ToolNode(tools)) # 工具执行节点
+workflow.add_node("agent", call_model)          # Agent 思考节点
+workflow.add_node("tools", execute_tools)       # 手动工具执行节点
 
 # 设置入口
 workflow.set_entry_point("agent")
@@ -183,7 +204,7 @@ def ask(question: str):
     try:
         result = app.invoke(
             {"messages": [TOOL_SYSTEM_PROMPT, HumanMessage(content=question)], "steps": []},
-            config={"recursion_limit": 4},
+            config={"recursion_limit": 8},
         )
     except Exception as e:
         print(f"\n❌ 执行出错：{str(e)[:200]}")
@@ -209,3 +230,4 @@ if __name__ == "__main__":
     # 测试三个场景
     ask("计算 1 + 2 乘以 3 等于多少？")
     ask("你的名字叫什么？你是谁开发的？")
+    ask("Python 的列表和元组有什么区别？")

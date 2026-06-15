@@ -43,7 +43,7 @@ class RAGEngine:
 
         # ── LLM（复用）──
         self.llm = ChatOpenAI(
-            model="qwen-plus",
+            model="qwen-max",
             api_key=self.dashscope_key,
             base_url=self.dashscope_url,
             temperature=0.1,
