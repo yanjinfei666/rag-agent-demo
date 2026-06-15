@@ -142,20 +142,42 @@ class RAGEngine:
     # ════════════════════════════════════════════════════
     # 问答（Day 7 核心：检索 → 精排 → 生成）
     # ════════════════════════════════════════════════════
+    # ════════════════════════════════════════════════════
+    # HyDE：先生成假设答案，再用假设答案去检索
+    # ════════════════════════════════════════════════════
+    def _generate_hypothetical(self, question: str) -> str:
+        """用 LLM 生成一个假设性的理想答案"""
+        hyde_prompt = PromptTemplate.from_template(
+            "你是一位领域专家。请针对以下问题，写一段详细的、专业的回答。\n"
+            "要求：回答要尽可能完整、包含具体细节、使用专业术语。\n"
+            "注意：你不需要检索任何资料，直接基于你的知识写一段假设性的回答。\n\n"
+            "问题：{question}\n\n"
+            "假设性回答："
+        )
+        chain = hyde_prompt | self.llm | StrOutputParser()
+        return chain.invoke({"question": question})
+
+    # ════════════════════════════════════════════════════
+    # 问答（Day 7 核心：检索 → 精排 → 生成）
+    # ════════════════════════════════════════════════════
     def ask(self, question: str) -> dict:
         """
-        问答（含 Reranker 精排）
+        问答（含 HyDE + Reranker）
 
         流程：
-          ① 向量检索 → 粗召回 N 块
-          ② Cross-Encoder 打分 → 精排取 top K
-          ③ 拼成 context → LLM 生成回答
+          ① 生成假设答案（HyDE）
+          ② 用假设答案进行向量检索 → 粗召回 N 块
+          ③ Cross-Encoder 打分 → 精排取 top K
+          ④ 拼成 context → LLM 生成回答
         """
         if not self.qa_chain:
             raise RuntimeError("请先上传 PDF 文件")
 
-        # ── ① 向量检索（粗召回）──
-        docs = self.retriever.invoke(question)
+        # ── ① HyDE：生成假设答案 → 用假设答案检索（比原始问题召回更准）──
+        hyde_query = self._generate_hypothetical(question)
+
+        # ── ② 向量检索（粗召回）──
+        docs = self.retriever.invoke(hyde_query)
 
         # ── ② Reranker 精排（可选）──
         if self.use_reranker and self.reranker_model and len(docs) > self.final_k:
